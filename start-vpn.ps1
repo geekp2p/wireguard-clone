@@ -90,14 +90,14 @@ Write-Host "DNS set: 1.1.1.1" -ForegroundColor Green
 Write-Host "=== Step 7: Waiting for handshake ===" -ForegroundColor Cyan
 Write-Host "IMPORTANT: The server must have this client's public key configured!" -ForegroundColor Yellow
 
-# Show client public key for verification
-$privateKeyHex = "d096774f42849f3323689b4a8c2582cdb985c606777eff1963d843eee3a2e578"
-$privateKeyBytes = New-Object byte[] 32
-for ($i = 0; $i -lt 32; $i++) {
-    $privateKeyBytes[$i] = [Convert]::ToByte($privateKeyHex.Substring($i * 2, 2), 16)
-}
-$privateKeyBase64 = [Convert]::ToBase64String($privateKeyBytes)
-Write-Host "To get client public key, run on server: echo '$privateKeyBase64' | wg pubkey" -ForegroundColor Cyan
+# Client public key (pre-computed from private key)
+$clientPublicKey = "RVilpi9wTgHMpAHr+w1DUv9WiaCRAdVdAUNq4rKY2mk="
+Write-Host ""
+Write-Host "Client Public Key: $clientPublicKey" -ForegroundColor Green
+Write-Host ""
+Write-Host "Add to server with:" -ForegroundColor Yellow
+Write-Host "  wg set wg0 peer $clientPublicKey allowed-ips 172.16.1.252/32" -ForegroundColor White
+Write-Host ""
 
 # Wait for handshake to complete before adding default route
 $handshakeTimeout = 30
