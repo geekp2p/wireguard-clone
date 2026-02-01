@@ -190,7 +190,7 @@ while (((Get-Date) - $startTime).TotalSeconds -lt $handshakeTimeout) {
     try {
         $pipe = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'ProtectedPrefix\Administrators\WireGuard\wg0', 'InOut')
         $pipe.Connect(2000)
-        $pipe.ReadTimeout = 3000  # 3 second read timeout
+        # Note: Named pipes don't support ReadTimeout property, using manual timeout checking below
         $writer = New-Object System.IO.StreamWriter($pipe)
         $writer.Write("get=1`n`n")
         $writer.Flush()
