@@ -16,12 +16,31 @@ try {
     $writer.Write($config)
     $writer.Flush()
 
+    # Read line-by-line instead of ReadToEnd() to avoid hanging
+    $pipe.ReadTimeout = 5000  # 5 second read timeout
     $reader = New-Object System.IO.StreamReader($pipe)
-    $response = $reader.ReadToEnd()
+    $response = ""
+    $readStart = Get-Date
+    try {
+        while (((Get-Date) - $readStart).TotalMilliseconds -lt 5000) {
+            $line = $reader.ReadLine()
+            if ($null -eq $line) { break }
+            $response += $line + "`n"
+            if ($line -match "^errno=") { break }
+        }
+    } catch { }
     $pipe.Close()
 
-    if ([string]::IsNullOrWhiteSpace($response)) {
-        Write-Host "Configuration applied successfully!" -ForegroundColor Green
+    # Check for errno in response
+    if ($response -match "errno=(\d+)") {
+        $errno = $matches[1]
+        if ($errno -eq "0") {
+            Write-Host "Configuration applied successfully!" -ForegroundColor Green
+        } else {
+            Write-Host "Configuration error (errno=$errno): $response" -ForegroundColor Red
+        }
+    } elseif ([string]::IsNullOrWhiteSpace($response)) {
+        Write-Host "Configuration applied (no response)" -ForegroundColor Green
     } else {
         Write-Host "Response: $response" -ForegroundColor Yellow
     }
