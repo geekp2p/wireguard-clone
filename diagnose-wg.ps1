@@ -153,12 +153,15 @@ try {
     Write-Host "    Is wireguard-go running?" -ForegroundColor Yellow
 }
 
-# 7. Calculate and display client public key
+# 7. Display client public key (pre-computed)
 Write-Host ""
-Write-Host "[7] Client public key (for server configuration):" -ForegroundColor Yellow
-$privateKeyHex = "d096774f42849f3323689b4a8c2582cdb985c606777eff1963d843eee3a2e578"
-Write-Host "    To configure on server, add this peer's public key" -ForegroundColor Cyan
-Write-Host "    (Run 'wg show' on this machine to see the public key)" -ForegroundColor Cyan
+Write-Host "[7] Client public key (ADD THIS TO SERVER):" -ForegroundColor Yellow
+$clientPublicKey = "RVilpi9wTgHMpAHr+w1DUv9WiaCRAdVdAUNq4rKY2mk="
+Write-Host ""
+Write-Host "    $clientPublicKey" -ForegroundColor Green
+Write-Host ""
+Write-Host "    Add to server with:" -ForegroundColor Cyan
+Write-Host "    wg set wg0 peer $clientPublicKey allowed-ips 172.16.1.252/32" -ForegroundColor White
 
 Write-Host ""
 Write-Host "=== Recommendations ===" -ForegroundColor Cyan
@@ -166,15 +169,21 @@ Write-Host ""
 Write-Host "If handshake is failing (client sends but server doesn't respond):" -ForegroundColor White
 Write-Host ""
 Write-Host "  MOST COMMON: Client public key not configured on server" -ForegroundColor Yellow
-Write-Host "    Run .\show-client-pubkey.ps1 to get the public key" -ForegroundColor Cyan
-Write-Host "    Add it to server config with: AllowedIPs = 172.16.1.252/32" -ForegroundColor Cyan
+Write-Host "    Copy the public key above and add it to your server." -ForegroundColor Cyan
+Write-Host ""
+Write-Host "  Server configuration (add this to /etc/wireguard/wg0.conf):" -ForegroundColor Yellow
+Write-Host "    [Peer]" -ForegroundColor White
+Write-Host "    PublicKey = $clientPublicKey" -ForegroundColor White
+Write-Host "    AllowedIPs = 172.16.1.252/32" -ForegroundColor White
+Write-Host ""
+Write-Host "  Or via command line on server:" -ForegroundColor Yellow
+Write-Host "    wg set wg0 peer $clientPublicKey allowed-ips 172.16.1.252/32" -ForegroundColor White
 Write-Host ""
 Write-Host "  Other checks:" -ForegroundColor White
 Write-Host "  1. Is the WireGuard server running at $vpnEndpoint`:$vpnPort?" -ForegroundColor White
-Write-Host "  2. Does server's public key in config-wg.ps1 match 'wg show' on server?" -ForegroundColor White
-Write-Host "  3. Are the allowed IPs on the server configured for 172.16.1.252?" -ForegroundColor White
-Write-Host "  4. Is UDP port $vpnPort open on server firewall?" -ForegroundColor White
-Write-Host "  5. Is Windows Firewall blocking outbound UDP?" -ForegroundColor White
+Write-Host "  2. Does server's public key match: 2eZC8G9Gi7pnHh7UgJv1DXMptk9kA+XiopDTI44XoRc=" -ForegroundColor White
+Write-Host "  3. Is UDP port $vpnPort open on server firewall?" -ForegroundColor White
+Write-Host "  4. Is Windows Firewall blocking outbound UDP?" -ForegroundColor White
 Write-Host ""
 Write-Host "To verify server config, run on server:" -ForegroundColor Yellow
 Write-Host "  wg show" -ForegroundColor White
