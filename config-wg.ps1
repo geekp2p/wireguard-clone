@@ -38,6 +38,7 @@ try {
 
     # WireGuard UAPI configuration
     # private_key and public_key are in hex format
+    # IMPORTANT: UAPI requires Unix LF line endings, not Windows CRLF
     $config = @"
 set=1
 private_key=d096774f42849f3323689b4a8c2582cdb985c606777eff1963d843eee3a2e578
@@ -48,6 +49,8 @@ allowed_ip=0.0.0.0/0
 allowed_ip=::/0
 
 "@
+    # Convert CRLF to LF - UAPI protocol requires Unix line endings
+    $config = $config -replace "`r`n", "`n"
 
     $writer.Write($config)
     $writer.Flush()
