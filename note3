@@ -1,0 +1,9 @@
+# ตั้ง IP
+New-NetIPAddress -InterfaceAlias "wg0" -IPAddress "172.16.1.252" -PrefixLength 32
+
+# ตั้ง DNS
+Set-DnsClientServerAddress -InterfaceAlias "wg0" -ServerAddresses "1.1.1.1"
+
+
+# Route all traffic ผ่าน wg0
+New-NetRoute -InterfaceAlias "wg0" -DestinationPrefix "0.0.0.0/0" -NextHop "0.0.0.0" -RouteMetric 1

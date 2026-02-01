@@ -1,0 +1,49 @@
+cd C:\lenovo-arm-32
+
+# ดาวน์โหลด wintun
+Invoke-WebRequest -Uri "https://www.wintun.net/builds/wintun-0.14.1.zip" -OutFile "wintun.zip"
+
+# แตกไฟล์
+Expand-Archive -Path "wintun.zip" -DestinationPath "."
+
+# คัดลอก wintun.dll (ARM64) ไปที่โฟลเดอร์ wireguard-go
+copy .\wintun\bin\arm64\wintun.dll .\wireguard-go\
+
+
+///////////////////////////////////////////////////
+
+
+cd C:\lenovo-arm-32\wireguard-tools-1.0.20250521\src
+
+# ใช้ Go build (ถ้า Makefile ไม่รองรับ Windows โดยตรง)
+# หรือถ้ามี MinGW/GCC สำหรับ ARM64:
+
+////////////////////////////////////////////////
+
+cd C:\lenovo-arm-32
+
+# ดาวน์โหลด
+Invoke-WebRequest -Uri "https://www.wintun.net/builds/wintun-0.14.1.zip" -OutFile "wintun.zip"
+
+# แตกไฟล์
+Expand-Archive -Path "wintun.zip" -DestinationPath "." -Force
+
+# ดูไฟล์ที่แตกออกมา
+dir .\wintun\bin\arm64\
+
+
+
+Start-Process -Verb RunAs -FilePath "C:\lenovo-arm-32\wireguard-go\wireguard-go.exe" -ArgumentList "wg0"
+
+//////////////////////////////////////////////////
+
+
+
+
+cd C:\lenovo-arm-32
+
+# ดาวน์โหลด PsExec
+Invoke-WebRequest -Uri "https://live.sysinternals.com/PsExec64.exe" -OutFile "PsExec64.exe"
+
+# รันเป็น SYSTEM account
+.\PsExec64.exe -s -i cmd /c "C:\lenovo-arm-32\wireguard-go\wireguard-go.exe wg0"
