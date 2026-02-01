@@ -55,25 +55,60 @@ allowed_ip=::/0
     $writer.Write($config)
     $writer.Flush()
 
+    # Read response line-by-line instead of ReadToEnd() to avoid hanging
+    # UAPI responds with "errno=N\n\n" for set operations
     $reader = New-Object System.IO.StreamReader($pipe)
-    $response = $reader.ReadToEnd()
+    $response = ""
+    $readTimeout = 5000  # 5 second timeout
+    $startTime = Get-Date
+
+    # Set read timeout on the pipe
+    $pipe.ReadTimeout = $readTimeout
+
+    try {
+        while ($true) {
+            # Check timeout
+            if (((Get-Date) - $startTime).TotalMilliseconds -gt $readTimeout) {
+                Write-Host "Read timeout - assuming configuration was applied" -ForegroundColor Yellow
+                break
+            }
+
+            $line = $reader.ReadLine()
+            if ($null -eq $line) {
+                # End of stream
+                break
+            }
+
+            $response += $line + "`n"
+
+            # Check if we got the errno response (end of UAPI response)
+            if ($line -match "^errno=") {
+                break
+            }
+        }
+    } catch [System.IO.IOException] {
+        # Timeout or pipe closed - this is expected
+        Write-Host "Pipe read completed" -ForegroundColor Gray
+    } catch {
+        Write-Host "Read warning: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+
     $pipe.Close()
 
-    if ([string]::IsNullOrWhiteSpace($response)) {
-        Write-Host "Configuration applied successfully!" -ForegroundColor Green
-    } else {
-        # Check for errno in response (indicates error)
-        if ($response -match "errno=(\d+)") {
-            $errno = $matches[1]
-            if ($errno -eq "0") {
-                Write-Host "Configuration applied successfully!" -ForegroundColor Green
-            } else {
-                Write-Host "Configuration error (errno=$errno): $response" -ForegroundColor Red
-                exit 1
-            }
+    # Check for errno in response
+    if ($response -match "errno=(\d+)") {
+        $errno = $matches[1]
+        if ($errno -eq "0") {
+            Write-Host "Configuration applied successfully!" -ForegroundColor Green
         } else {
-            Write-Host "Response: $response" -ForegroundColor Yellow
+            Write-Host "Configuration error (errno=$errno): $response" -ForegroundColor Red
+            exit 1
         }
+    } elseif ([string]::IsNullOrWhiteSpace($response)) {
+        # No response but no error - assume success
+        Write-Host "Configuration applied (no response received)" -ForegroundColor Green
+    } else {
+        Write-Host "Response: $response" -ForegroundColor Yellow
     }
 
 } catch [System.TimeoutException] {

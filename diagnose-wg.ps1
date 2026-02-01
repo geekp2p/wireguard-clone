@@ -106,13 +106,24 @@ Write-Host "[5] Checking WireGuard named pipe..." -ForegroundColor Yellow
 try {
     $pipe = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'ProtectedPrefix\Administrators\WireGuard\wg0', 'InOut')
     $pipe.Connect(2000)
+    $pipe.ReadTimeout = 3000  # 3 second read timeout
 
     $writer = New-Object System.IO.StreamWriter($pipe)
     $writer.Write("get=1`n`n")
     $writer.Flush()
 
+    # Read line-by-line instead of ReadToEnd() to avoid hanging
     $reader = New-Object System.IO.StreamReader($pipe)
-    $response = $reader.ReadToEnd()
+    $response = ""
+    $readStart = Get-Date
+    try {
+        while (((Get-Date) - $readStart).TotalMilliseconds -lt 3000) {
+            $line = $reader.ReadLine()
+            if ($null -eq $line) { break }
+            $response += $line + "`n"
+            if ($line -match "^errno=") { break }
+        }
+    } catch { }
     $pipe.Close()
 
     Write-Host "    Pipe connection: OK" -ForegroundColor Green
