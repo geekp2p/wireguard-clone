@@ -87,7 +87,70 @@ Write-Host "=== Step 6: Setting DNS ===" -ForegroundColor Cyan
 Set-DnsClientServerAddress -InterfaceAlias "wg0" -ServerAddresses "1.1.1.1" -ErrorAction SilentlyContinue
 Write-Host "DNS set: 1.1.1.1" -ForegroundColor Green
 
-Write-Host "=== Step 7: Adding default route ===" -ForegroundColor Cyan
+Write-Host "=== Step 7: Waiting for handshake ===" -ForegroundColor Cyan
+Write-Host "IMPORTANT: The server must have this client's public key configured!" -ForegroundColor Yellow
+
+# Show client public key for verification
+$privateKeyHex = "d096774f42849f3323689b4a8c2582cdb985c606777eff1963d843eee3a2e578"
+$privateKeyBytes = New-Object byte[] 32
+for ($i = 0; $i -lt 32; $i++) {
+    $privateKeyBytes[$i] = [Convert]::ToByte($privateKeyHex.Substring($i * 2, 2), 16)
+}
+$privateKeyBase64 = [Convert]::ToBase64String($privateKeyBytes)
+Write-Host "To get client public key, run on server: echo '$privateKeyBase64' | wg pubkey" -ForegroundColor Cyan
+
+# Wait for handshake to complete before adding default route
+$handshakeTimeout = 30
+$handshakeSuccess = $false
+$startTime = Get-Date
+
+Write-Host "Waiting up to $handshakeTimeout seconds for handshake..." -ForegroundColor Yellow
+
+while (((Get-Date) - $startTime).TotalSeconds -lt $handshakeTimeout) {
+    try {
+        $pipe = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'ProtectedPrefix\Administrators\WireGuard\wg0', 'InOut')
+        $pipe.Connect(2000)
+        $writer = New-Object System.IO.StreamWriter($pipe)
+        $writer.Write("get=1`n`n")
+        $writer.Flush()
+        $reader = New-Object System.IO.StreamReader($pipe)
+        $response = $reader.ReadToEnd()
+        $pipe.Close()
+
+        # Check if last_handshake_time_sec is non-zero (handshake succeeded)
+        if ($response -match "last_handshake_time_sec=(\d+)") {
+            $timestamp = [int64]$matches[1]
+            if ($timestamp -gt 0) {
+                Write-Host "Handshake successful!" -ForegroundColor Green
+                $handshakeSuccess = $true
+                break
+            }
+        }
+    } catch {
+        # Pipe connection failed, wireguard-go might not be ready
+    }
+
+    Write-Host "  Waiting for handshake... ($([int]((Get-Date) - $startTime).TotalSeconds)s)" -ForegroundColor Gray
+    Start-Sleep -Seconds 2
+}
+
+if (-not $handshakeSuccess) {
+    Write-Host ""
+    Write-Host "WARNING: Handshake did not complete within $handshakeTimeout seconds!" -ForegroundColor Red
+    Write-Host "NOT adding default route through wg0 (would break internet connectivity)" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "Possible causes:" -ForegroundColor Yellow
+    Write-Host "  1. Server doesn't have this client's public key configured" -ForegroundColor White
+    Write-Host "  2. Server's public key in config-wg.ps1 doesn't match actual server" -ForegroundColor White
+    Write-Host "  3. UDP port 13233 is blocked by firewall" -ForegroundColor White
+    Write-Host "  4. Server is not running or unreachable" -ForegroundColor White
+    Write-Host ""
+    Write-Host "Run .\show-client-pubkey.ps1 and verify server configuration" -ForegroundColor Cyan
+    Write-Host "The VPN interface is UP but traffic is NOT routed through it" -ForegroundColor Yellow
+    exit 1
+}
+
+Write-Host "=== Step 8: Adding default route ===" -ForegroundColor Cyan
 Remove-NetRoute -InterfaceAlias "wg0" -DestinationPrefix "0.0.0.0/0" -Confirm:$false -ErrorAction SilentlyContinue
 New-NetRoute -InterfaceAlias "wg0" -DestinationPrefix "0.0.0.0/0" -NextHop "0.0.0.0" -RouteMetric 5 -ErrorAction SilentlyContinue
 Write-Host "Default route added through wg0" -ForegroundColor Green
@@ -98,5 +161,4 @@ Get-NetAdapter -Name "wg0" -ErrorAction SilentlyContinue | Format-Table Name, St
 Get-NetIPAddress -InterfaceAlias "wg0" -AddressFamily IPv4 -ErrorAction SilentlyContinue | Format-Table IPAddress, PrefixLength
 
 Write-Host ""
-Write-Host "Done! Check wireguard-go window for 'Keypair created' message." -ForegroundColor Green
-Write-Host "If handshake succeeds, your VPN is working!" -ForegroundColor Green
+Write-Host "VPN is connected and all traffic is now routed through the tunnel!" -ForegroundColor Green

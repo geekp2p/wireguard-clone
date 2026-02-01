@@ -21,17 +21,36 @@ Write-Host ""
 Write-Host "[2] Checking routing to VPN endpoint..." -ForegroundColor Yellow
 $endpointRoute = Get-NetRoute -DestinationPrefix "$vpnEndpoint/32" -ErrorAction SilentlyContinue
 if ($endpointRoute) {
+    $ifMetric = (Get-NetIPInterface -InterfaceIndex $endpointRoute.InterfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).InterfaceMetric
+    $effectiveMetric = $endpointRoute.RouteMetric + $ifMetric
     Write-Host "    Endpoint route: $vpnEndpoint -> $($endpointRoute.NextHop) via $($endpointRoute.InterfaceAlias)" -ForegroundColor Green
+    Write-Host "    Route metric: $($endpointRoute.RouteMetric), Interface metric: $ifMetric, Effective: $effectiveMetric" -ForegroundColor Gray
 } else {
     Write-Host "    WARNING: No specific route for VPN endpoint!" -ForegroundColor Red
     Write-Host "    Handshake packets may be routing through wg0 (infinite loop)" -ForegroundColor Red
 }
 
 $defaultRoutes = Get-NetRoute -DestinationPrefix "0.0.0.0/0" | Sort-Object RouteMetric
-Write-Host "    Default routes:"
+Write-Host "    Default routes (sorted by route metric):"
 foreach ($route in $defaultRoutes) {
     $color = if ($route.InterfaceAlias -eq "wg0") {'Cyan'} else {'White'}
-    Write-Host "      $($route.InterfaceAlias) -> $($route.NextHop) (metric: $($route.RouteMetric))" -ForegroundColor $color
+    $ifMetric = (Get-NetIPInterface -InterfaceIndex $route.InterfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).InterfaceMetric
+    $effectiveMetric = $route.RouteMetric + $ifMetric
+    Write-Host "      $($route.InterfaceAlias) -> $($route.NextHop) (route: $($route.RouteMetric), if: $ifMetric, effective: $effectiveMetric)" -ForegroundColor $color
+}
+
+# Check if wg0 would intercept endpoint traffic
+$wg0Route = $defaultRoutes | Where-Object { $_.InterfaceAlias -eq "wg0" }
+if ($wg0Route -and $endpointRoute) {
+    $wg0IfMetric = (Get-NetIPInterface -InterfaceIndex $wg0Route.InterfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).InterfaceMetric
+    $wg0Effective = $wg0Route.RouteMetric + $wg0IfMetric
+    $endpointIfMetric = (Get-NetIPInterface -InterfaceIndex $endpointRoute.InterfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).InterfaceMetric
+    $endpointEffective = $endpointRoute.RouteMetric + $endpointIfMetric
+    Write-Host ""
+    Write-Host "    Routing analysis:" -ForegroundColor Yellow
+    Write-Host "      Endpoint route (/32) has effective metric $endpointEffective" -ForegroundColor Gray
+    Write-Host "      wg0 default route (/0) has effective metric $wg0Effective" -ForegroundColor Gray
+    Write-Host "      /32 always takes precedence over /0 (more specific wins)" -ForegroundColor Green
 }
 
 # 3. Test UDP connectivity
@@ -144,10 +163,19 @@ Write-Host "    (Run 'wg show' on this machine to see the public key)" -Foregrou
 Write-Host ""
 Write-Host "=== Recommendations ===" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "If handshake is failing, check:" -ForegroundColor White
+Write-Host "If handshake is failing (client sends but server doesn't respond):" -ForegroundColor White
+Write-Host ""
+Write-Host "  MOST COMMON: Client public key not configured on server" -ForegroundColor Yellow
+Write-Host "    Run .\show-client-pubkey.ps1 to get the public key" -ForegroundColor Cyan
+Write-Host "    Add it to server config with: AllowedIPs = 172.16.1.252/32" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "  Other checks:" -ForegroundColor White
 Write-Host "  1. Is the WireGuard server running at $vpnEndpoint`:$vpnPort?" -ForegroundColor White
-Write-Host "  2. Is THIS client's public key configured on the server?" -ForegroundColor White
-Write-Host "  3. Are the allowed IPs on the server configured for this client?" -ForegroundColor White
+Write-Host "  2. Does server's public key in config-wg.ps1 match 'wg show' on server?" -ForegroundColor White
+Write-Host "  3. Are the allowed IPs on the server configured for 172.16.1.252?" -ForegroundColor White
 Write-Host "  4. Is UDP port $vpnPort open on server firewall?" -ForegroundColor White
 Write-Host "  5. Is Windows Firewall blocking outbound UDP?" -ForegroundColor White
+Write-Host ""
+Write-Host "To verify server config, run on server:" -ForegroundColor Yellow
+Write-Host "  wg show" -ForegroundColor White
 Write-Host ""
