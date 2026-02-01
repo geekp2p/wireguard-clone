@@ -175,6 +175,7 @@ func (peer *Peer) timersHandshakeInitiated() {
 
 /* Should be called after a handshake response message is received and processed or when getting key confirmation via the first data message. */
 func (peer *Peer) timersHandshakeComplete() {
+	peer.device.log.Verbosef("%v - Keypair created for peer (handshake complete)", peer)
 	if peer.timersActive() {
 		peer.timers.retransmitHandshake.Del()
 	}
