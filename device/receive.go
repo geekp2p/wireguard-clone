@@ -113,6 +113,7 @@ func (device *Device) RoutineReceiveIncoming(maxBatchSize int, recv conn.Receive
 				return
 			}
 			device.log.Verbosef("Failed to receive %s packet: %v", recvName, err)
+			device.log.Verbosef("DEBUG: Receive error details - recvName=%s, err type=%T", recvName, err)
 			if neterr, ok := err.(net.Error); ok && !neterr.Temporary() {
 				return
 			}
@@ -126,8 +127,12 @@ func (device *Device) RoutineReceiveIncoming(maxBatchSize int, recv conn.Receive
 		deathSpiral = 0
 
 		// handle each packet in the batch
+		if count > 0 {
+			device.log.Verbosef("DEBUG: Received batch of %d packets via %s", count, recvName)
+		}
 		for i, size := range sizes[:count] {
 			if size < MinMessageSize {
+				device.log.Verbosef("DEBUG: Packet %d too small (size=%d, min=%d)", i, size, MinMessageSize)
 				continue
 			}
 
@@ -193,7 +198,9 @@ func (device *Device) RoutineReceiveIncoming(maxBatchSize int, recv conn.Receive
 				}
 
 			case MessageResponseType:
+				device.log.Verbosef("DEBUG: Received handshake response packet from %v (size=%d)", endpoints[i].DstToString(), len(packet))
 				if len(packet) != MessageResponseSize {
+					device.log.Verbosef("DEBUG: Handshake response wrong size: got %d, expected %d", len(packet), MessageResponseSize)
 					continue
 				}
 
