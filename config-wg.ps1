@@ -62,9 +62,7 @@ allowed_ip=::/0
     $readTimeout = 5000  # 5 second timeout
     $startTime = Get-Date
 
-    # Set read timeout on the pipe
-    $pipe.ReadTimeout = $readTimeout
-
+    # Note: Named pipes don't support ReadTimeout property, so we use manual timeout checking
     try {
         while ($true) {
             # Check timeout

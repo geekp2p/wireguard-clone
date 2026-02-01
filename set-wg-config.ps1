@@ -17,7 +17,7 @@ try {
     $writer.Flush()
 
     # Read line-by-line instead of ReadToEnd() to avoid hanging
-    $pipe.ReadTimeout = 5000  # 5 second read timeout
+    # Note: Named pipes don't support ReadTimeout property, using manual timeout checking below
     $reader = New-Object System.IO.StreamReader($pipe)
     $response = ""
     $readStart = Get-Date
