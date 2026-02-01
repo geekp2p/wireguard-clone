@@ -7,8 +7,8 @@ $publicKeyHex = "4558a5a62f704e01cca401ebfb0d4352ff5689a09101d55d01436ae2b298da6
 $publicKeyBase64 = "RVilpi9wTgHMpAHr+w1DUv9WiaCRAdVdAUNq4rKY2mk="
 
 # Server's expected public key
-$serverPubKeyHex = "d9e642f06f468bba67e11ed4809bf50d7329b64f6403e5e2a290d3238e17a117"
-$serverPubKeyBase64 = "2eZC8G9Gi7pnHh7UgJv1DXMptk9kA+XiopDTI44XoRc="
+$serverPubKeyHex = "d9e642f06f468bb367e11ed34809bf50d5729b64fda41e57a3a290d323b41721"
+$serverPubKeyBase64 = "2eZC8G9Gi7Nn4R7TSAm/UNVym2T9pB5Xo6KQ0yO0FyE="
 
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan
