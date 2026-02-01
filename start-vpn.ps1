@@ -44,9 +44,89 @@ if (-not (Test-Path $wgExe)) {
     exit 1
 }
 
+# Remove Zone.Identifier to unblock the file (downloaded files are marked as blocked)
+$zoneFile = "$wgExe`:Zone.Identifier"
+if (Test-Path $zoneFile -ErrorAction SilentlyContinue) {
+    Remove-Item $zoneFile -Force -ErrorAction SilentlyContinue
+    Write-Host "Unblocked wireguard-go.exe (removed Zone.Identifier)" -ForegroundColor Yellow
+}
+
+# Try to unblock using PowerShell cmdlet as well
+try {
+    Unblock-File -Path $wgExe -ErrorAction SilentlyContinue
+} catch {}
+
 # Start wireguard-go in a new window (runs as current admin user)
-Start-Process -FilePath $wgExe -ArgumentList "wg0" -WindowStyle Normal
-Write-Host "Started wireguard-go.exe, waiting for interface..." -ForegroundColor Yellow
+$processStarted = $false
+$startError = $null
+
+# Method 1: Try Start-Process with error handling
+try {
+    Write-Host "Starting wireguard-go.exe..." -ForegroundColor Yellow
+    $process = Start-Process -FilePath $wgExe -ArgumentList "wg0" -WindowStyle Normal -PassThru -ErrorAction Stop
+    if ($process -and $process.Id -gt 0) {
+        $processStarted = $true
+        Write-Host "Started wireguard-go.exe (PID: $($process.Id))" -ForegroundColor Green
+    }
+} catch {
+    $startError = $_.Exception.Message
+    Write-Host "Start-Process failed: $startError" -ForegroundColor Yellow
+}
+
+# Method 2: If Start-Process failed, try using cmd.exe /c start
+if (-not $processStarted) {
+    Write-Host "Trying alternative method via cmd.exe..." -ForegroundColor Yellow
+    try {
+        $cmdArgs = "/c start `"`" `"$wgExe`" wg0"
+        Start-Process -FilePath "cmd.exe" -ArgumentList $cmdArgs -WindowStyle Hidden -ErrorAction Stop
+        Start-Sleep -Milliseconds 500
+        $wgProcess = Get-Process -Name "wireguard-go" -ErrorAction SilentlyContinue
+        if ($wgProcess) {
+            $processStarted = $true
+            Write-Host "Started wireguard-go.exe via cmd.exe" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "cmd.exe method also failed: $_" -ForegroundColor Yellow
+    }
+}
+
+# Method 3: Try .NET Process class directly
+if (-not $processStarted) {
+    Write-Host "Trying .NET Process.Start method..." -ForegroundColor Yellow
+    try {
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = $wgExe
+        $psi.Arguments = "wg0"
+        $psi.UseShellExecute = $true
+        $psi.WorkingDirectory = $scriptDir
+        $proc = [System.Diagnostics.Process]::Start($psi)
+        if ($proc -and $proc.Id -gt 0) {
+            $processStarted = $true
+            Write-Host "Started wireguard-go.exe via .NET (PID: $($proc.Id))" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host ".NET method also failed: $_" -ForegroundColor Yellow
+    }
+}
+
+if (-not $processStarted) {
+    Write-Host ""
+    Write-Host "ERROR: Failed to start wireguard-go.exe!" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "This is typically caused by Windows SmartScreen or Defender blocking the executable." -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "To fix this, try one of these options:" -ForegroundColor Cyan
+    Write-Host "  1. Right-click wireguard-go.exe -> Properties -> Check 'Unblock' -> Apply" -ForegroundColor White
+    Write-Host "  2. Add an exclusion in Windows Defender for this folder" -ForegroundColor White
+    Write-Host "  3. Temporarily disable Windows SmartScreen" -ForegroundColor White
+    Write-Host "  4. Run wireguard-go.exe manually in a separate Admin command prompt:" -ForegroundColor White
+    Write-Host "     cd $scriptDir" -ForegroundColor Gray
+    Write-Host "     .\wireguard-go.exe wg0" -ForegroundColor Gray
+    Write-Host ""
+    exit 1
+}
+
+Write-Host "Waiting for interface..." -ForegroundColor Yellow
 
 # Wait for wg0 interface to appear
 $retries = 0
