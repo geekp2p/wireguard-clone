@@ -1,0 +1,8 @@
+Get-Process | Where-Object {$_.Name -like "*wireguard*"} | Stop-Process -Force
+
+Remove-NetRoute -InterfaceAlias "wg0" -Confirm:$false -ErrorAction SilentlyContinue
+Remove-NetIPAddress -InterfaceAlias "wg0" -Confirm:$false -ErrorAction SilentlyContinue
+
+cd C:\lenovo-arm-32
+powershell -ExecutionPolicy Bypass -File .\start-wireguard.ps1
+

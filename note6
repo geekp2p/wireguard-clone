@@ -1,0 +1,12 @@
+# ทดสอบ TCP (อาจไม่ตอบ แต่ดูว่า network ถึงไหม)
+Test-NetConnection -ComputerName 212.80.213.27 -Port 13233
+
+# ดู route ที่ใช้จริง
+Find-NetRoute -RemoteIPAddress 212.80.213.27
+
+
+
+
+
+New-NetFirewallRule -DisplayName "WireGuard UDP Out" -Direction Outbound -Protocol UDP -LocalPort Any -RemotePort 13233 -Action Allow
+New-NetFirewallRule -DisplayName "WireGuard UDP In" -Direction Inbound -Protocol UDP -LocalPort Any -Action Allow

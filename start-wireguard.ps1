@@ -1,4 +1,4 @@
-# WireGuard Startup Script
+﻿# WireGuard Startup Script
 cd C:\lenovo-arm-32
 
 # VPN Server Endpoint - MUST route through Wi-Fi, not wg0
